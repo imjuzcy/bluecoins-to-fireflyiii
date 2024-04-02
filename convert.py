@@ -238,9 +238,9 @@ with alive_bar(total_txs, force_tty=True, title="Transfers   ") as bar:
         transaction_store = TransactionSplitStore(
             type=TransactionTypeProperty("transfer"),
             date=date,
-            amount=fmt_amount(tx["from_amount"]),
+            amount=fmt_amount(int(tx["from_amount"]) * float(tx["from_conversionRate"])),
             description=tx["itemName"],
-            currency_code=DEFAULT_CURRENCY,
+            currency_code=tx['from_currency'],
             source_name=account_from,
             destination_name=account_to,
             reconciled=True if tx["status"] == 2 else False,
@@ -249,10 +249,10 @@ with alive_bar(total_txs, force_tty=True, title="Transfers   ") as bar:
             external_id=str(tx["from_id"]),
         )
         # Handle conversion
-        if tx["transactionCurrency"] != DEFAULT_CURRENCY:
-            transaction_store.foreign_currency_code = tx["transactionCurrency"]
+        if tx["from_currency"] != tx["to_currency"]:
+            transaction_store.foreign_currency_code = tx["to_currency"]
             transaction_store.foreign_amount = fmt_amount(
-                int(tx["from_amount"]) * float(tx["conversionRateNew"])
+                int(tx["to_amount"]) * float(tx["to_conversionRate"])
             )
 
         # Insert
