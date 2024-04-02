@@ -142,8 +142,8 @@ with alive_bar(total_txs, force_tty=True, title="Transactions") as bar:
 
             # Handle conversion
             if tx["transactionCurrency"] != DEFAULT_CURRENCY:
-                transaction.foreign_currency_code = tx["transactionCurrency"]
-                transaction.foreign_amount = fmt_amount(
+                transaction.currency_code = tx["transactionCurrency"]
+                transaction.amount = fmt_amount(
                     int(amounts[i]) * float(tx["conversionRateNew"])
                 )
 
