@@ -10,6 +10,8 @@ from firefly_iii_client.api import (
     transactions_api,
     attachments_api,
     links_api,
+    search_api,
+    accounts_api,
 )
 from firefly_iii_client.model.transaction_store import TransactionStore
 from firefly_iii_client.model.transaction_split_store import TransactionSplitStore
@@ -17,7 +19,10 @@ from firefly_iii_client.model.transaction_type_property import TransactionTypePr
 from firefly_iii_client.model.attachment_store import AttachmentStore
 from firefly_iii_client.model.attachable_type import AttachableType
 from firefly_iii_client.model.transaction_link_store import TransactionLinkStore
-
+from firefly_iii_client.model.account_type_filter import AccountTypeFilter
+from firefly_iii_client.model.account_search_field_filter import AccountSearchFieldFilter
+from firefly_iii_client.model.account_store import AccountStore
+from firefly_iii_client.model.short_account_type_property import ShortAccountTypeProperty
 from config import (
     HOST,
     APIKEY,
@@ -26,6 +31,7 @@ from config import (
     DEFAULT_CURRENCY,
     ATTACHMENTS_FOLDER,
     LINKS,
+    DESC_AS_ACC,
 )
 from db import bluecoinsDB
 
@@ -81,6 +87,9 @@ db = bluecoinsDB(DB_FILE)
 api_transaction_instance = transactions_api.TransactionsApi(api_client)
 api_attachments_instance = attachments_api.AttachmentsApi(api_client)
 api_links_instance = links_api.LinksApi(api_client)
+api_search_instance = search_api.SearchApi(api_client)
+api_accounts_instance = accounts_api.AccountsApi(api_client)
+
 default_transaction_store = TransactionStore(
     error_if_duplicate_hash=True, apply_rules=True, fire_webhooks=True, transactions=[]
 )
@@ -131,14 +140,35 @@ with alive_bar(total_txs, force_tty=True, title="Transactions") as bar:
 
             # Source/Destionation
             account = db.account_name(account_ids[i])
+            if DESC_AS_ACC:
+                exp_acc_search_res = [a for a in api_search_instance.search_accounts(tx["itemName"], AccountSearchFieldFilter("name"), type=AccountTypeFilter("expense")).data if a['attributes']['name'] == tx["itemName"]]
+                if len(exp_acc_search_res) == 0:
+                    account_store = AccountStore(
+                        name=tx["itemName"],
+                        type=ShortAccountTypeProperty("expense"),
+                    )
+                    try:
+                        api_response = api_accounts_instance.store_account(account_store)
+                        new_exp_account_id = api_response['data']['id']
+                    except firefly_iii_client.ApiException as e:
+                        print("Exception when calling AccountsApi->store_account: %s\n" % e)
+                else:
+                    new_exp_account_id = exp_acc_search_res[0]['id']
             if transaction.type == TransactionTypeProperty("deposit"):
                 transaction.destination_name = account
-                transaction.source_id = str(DB_CONFIG["CASH_ACCOUNT_ID"])
+                if DESC_AS_ACC:
+                    transaction.source_id = new_exp_account_id
+                else:
+                    transaction.source_id = str(DB_CONFIG["CASH_ACCOUNT_ID"])
                 type = "deposit"
             elif transaction.type == TransactionTypeProperty("withdrawal"):
                 transaction.source_name = account
-                transaction.destination_id = str(DB_CONFIG["CASH_ACCOUNT_ID"])
+                if DESC_AS_ACC:
+                    transaction.destination_id = new_exp_account_id
+                else:
+                    transaction.destination_id = str(DB_CONFIG["CASH_ACCOUNT_ID"])
                 type = "withdrawal"
+
 
             # Handle conversion
             if tx["transactionCurrency"] != DEFAULT_CURRENCY:
