@@ -87,6 +87,7 @@ db = bluecoinsDB(DB_FILE)
 api_transaction_instance = transactions_api.TransactionsApi(api_client)
 api_attachments_instance = attachments_api.AttachmentsApi(api_client)
 api_links_instance = links_api.LinksApi(api_client)
+api_links_instance.store_transaction_link_endpoint.settings['endpoint_path'] = '/api/v1/transaction-links'
 api_search_instance = search_api.SearchApi(api_client)
 api_accounts_instance = accounts_api.AccountsApi(api_client)
 
